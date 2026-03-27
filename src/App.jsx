@@ -36,12 +36,23 @@ function App() {
 
   const handleAddSchedule = (e) => {
     e.preventDefault();
+
     const newId =
       schedule.length > 0
         ? Math.max(...schedule.map((item) => item.id)) + 1
         : 1;
-    setSchedule([...schedule, { id: newId, ...newItem }]);
+
+    const newSchedule = [...schedule, { id: newId, ...newItem }];
+
+    newSchedule.sort((a, b) => (a.time > b.time ? 1 : -1));
+
+    setSchedule(newSchedule);
     setNewItem({ time: "", title: "", location: "" });
+  };
+
+  const handleDelete = (id) => {
+    const filteredSchedule = schedule.filter((item) => item.id !== id);
+    setSchedule(filteredSchedule);
   };
 
   return (
@@ -91,17 +102,30 @@ function App() {
 
         <div className="relative border-l-4 border-blue-500 ml-4 md:ml-6">
           {schedule.map((item) => (
-            <div key={item.id} className="mb-10 pl-8 relative">
-              <div className="absolute w-6 h-6 bg-blue-500 rounded-full -left-[15px] top-1 border-4 border-white"></div>
-              <div className="flex flex-col sm:flex-row sm:items-center mb-1">
-                <span className="text-sm font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full mr-3 w-max">
-                  {item.time}
-                </span>
-                <h3 className="text-xl font-bold text-gray-800 mt-2 sm:mt-0">
-                  {item.title}
-                </h3>
+            <div
+              key={item.id}
+              className="mb-10 pl-8 relative flex justify-between items-start"
+            >
+              <div>
+                <div className="absolute w-6 h-6 bg-blue-500 rounded-full -left-[15px] top-1 border-4 border-white"></div>
+                <div className="flex flex-col sm:flex-row sm:items-center mb-1">
+                  <span className="text-sm font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full mr-3 w-max">
+                    {item.time}
+                  </span>
+                  <h3 className="text-xl font-bold text-gray-800 mt-2 sm:mt-0">
+                    {item.title}
+                  </h3>
+                </div>
+                <p className="text-gray-600 mt-2 font-medium">
+                  {item.location}
+                </p>
               </div>
-              <p className="text-gray-600 mt-2 font-medium">{item.location}</p>
+              <button
+                onClick={() => handleDelete(item.id)}
+                className="text-red-500 hover:text-red-700 text-sm font-semibold px-2 py-1 mt-1 sm:mt-0"
+              >
+                삭제
+              </button>
             </div>
           ))}
         </div>
