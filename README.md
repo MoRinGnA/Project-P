@@ -1,6 +1,6 @@
-# React + Vite
+# TripSync AI 여행플래너
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+다중 사용자가 AI를 통해 빠르고 편리하게 여행을 계획할 수 있는 웹 플래너
 
 Currently, two official plugins are available:
 
