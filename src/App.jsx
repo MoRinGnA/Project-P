@@ -92,33 +92,23 @@ function App() {
             <button
               key={day}
               onClick={() => setActiveDay(day)}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
-                activeDay === day
-                  ? "bg-[#1d1d1f] text-white"
-                  : "bg-transparent text-[#1d1d1f] hover:bg-gray-200"
-              }`}
+              className={`btn-primary ${activeDay === day ? "btn-active" : "btn-inactive"}`}
             >
               {day}일 차
             </button>
           ))}
-          <button
-            onClick={handleAddDay}
-            className="px-5 py-2 rounded-full text-sm font-medium text-[#0071e3] bg-[#e8f0fe] hover:bg-[#dce9fd] transition-all duration-300"
-          >
+          <button onClick={handleAddDay} className="btn-add-day">
             + 일차 추가
           </button>
         </div>
 
-        <form
-          onSubmit={handleAddSchedule}
-          className="mb-16 bg-white p-8 rounded-[2rem] shadow-sm"
-        >
+        <form onSubmit={handleAddSchedule} className="form-container">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
             <input
               type="time"
               value={newItem.time}
               onChange={(e) => setNewItem({ ...newItem, time: e.target.value })}
-              className="bg-[#f5f5f7] border-transparent rounded-xl p-3.5 text-[#1d1d1f] text-sm focus:outline-none focus:ring-2 focus:ring-[#0071e3] transition-all"
+              className="input-field"
               required
             />
             <input
@@ -128,7 +118,7 @@ function App() {
               onChange={(e) =>
                 setNewItem({ ...newItem, title: e.target.value })
               }
-              className="bg-[#f5f5f7] border-transparent rounded-xl p-3.5 text-[#1d1d1f] text-sm focus:outline-none focus:ring-2 focus:ring-[#0071e3] transition-all"
+              className="input-field"
               required
             />
             <input
@@ -138,14 +128,11 @@ function App() {
               onChange={(e) =>
                 setNewItem({ ...newItem, location: e.target.value })
               }
-              className="bg-[#f5f5f7] border-transparent rounded-xl p-3.5 text-[#1d1d1f] text-sm focus:outline-none focus:ring-2 focus:ring-[#0071e3] transition-all"
+              className="input-field"
               required
             />
           </div>
-          <button
-            type="submit"
-            className="w-full bg-[#0071e3] text-white font-medium text-sm py-3.5 rounded-full hover:bg-[#0077ed] transition-colors"
-          >
+          <button type="submit" className="btn-submit">
             {activeDay}일 차 일정 추가하기
           </button>
         </form>
@@ -157,11 +144,8 @@ function App() {
             </div>
           ) : (
             currentDaySchedule.map((item) => (
-              <div
-                key={item.id}
-                className="mb-10 pl-10 relative flex justify-between items-start group"
-              >
-                <div className="absolute w-2.5 h-2.5 bg-[#1d1d1f] rounded-full -left-[5px] top-2 shadow-[0_0_0_6px_#f5f5f7]"></div>
+              <div key={item.id} className="timeline-item group">
+                <div className="timeline-dot"></div>
 
                 <div className="flex-1">
                   <div className="flex flex-col sm:flex-row sm:items-baseline mb-1">
