@@ -39,6 +39,7 @@ function App() {
     },
   ]);
 
+  const [days, setDays] = useState([1, 2, 3]);
   const [activeDay, setActiveDay] = useState(1);
 
   const [newItem, setNewItem] = useState({
@@ -47,7 +48,11 @@ function App() {
     location: "",
   });
 
-  const days = [1, 2, 3];
+  const handleAddDay = () => {
+    const nextDay = days.length + 1;
+    setDays([...days, nextDay]);
+    setActiveDay(nextDay);
+  };
 
   const handleAddSchedule = (e) => {
     e.preventDefault();
@@ -76,38 +81,44 @@ function App() {
   const currentDaySchedule = schedule.filter((item) => item.day === activeDay);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#f5f5f7] py-16 px-4 sm:px-6 lg:px-8 font-sans transition-colors duration-300">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-extrabold text-gray-900 text-center mb-8">
-          Project-P
+        <h1 className="text-4xl font-bold text-[#1d1d1f] text-center mb-12 tracking-tight">
+          Project P
         </h1>
 
-        <div className="flex justify-center space-x-2 mb-8">
+        <div className="flex flex-wrap justify-center items-center gap-2 mb-12">
           {days.map((day) => (
             <button
               key={day}
               onClick={() => setActiveDay(day)}
-              className={`px-6 py-2 rounded-full font-semibold transition-colors ${
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
                 activeDay === day
-                  ? "bg-blue-600 text-white shadow-md"
-                  : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                  ? "bg-[#1d1d1f] text-white"
+                  : "bg-transparent text-[#1d1d1f] hover:bg-gray-200"
               }`}
             >
               {day}일 차
             </button>
           ))}
+          <button
+            onClick={handleAddDay}
+            className="px-5 py-2 rounded-full text-sm font-medium text-[#0071e3] bg-[#e8f0fe] hover:bg-[#dce9fd] transition-all duration-300"
+          >
+            + 일차 추가
+          </button>
         </div>
 
         <form
           onSubmit={handleAddSchedule}
-          className="mb-10 bg-white p-6 rounded-lg shadow-md"
+          className="mb-16 bg-white p-8 rounded-[2rem] shadow-sm"
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
             <input
               type="time"
               value={newItem.time}
               onChange={(e) => setNewItem({ ...newItem, time: e.target.value })}
-              className="border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="bg-[#f5f5f7] border-transparent rounded-xl p-3.5 text-[#1d1d1f] text-sm focus:outline-none focus:ring-2 focus:ring-[#0071e3] transition-all"
               required
             />
             <input
@@ -117,7 +128,7 @@ function App() {
               onChange={(e) =>
                 setNewItem({ ...newItem, title: e.target.value })
               }
-              className="border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="bg-[#f5f5f7] border-transparent rounded-xl p-3.5 text-[#1d1d1f] text-sm focus:outline-none focus:ring-2 focus:ring-[#0071e3] transition-all"
               required
             />
             <input
@@ -127,46 +138,48 @@ function App() {
               onChange={(e) =>
                 setNewItem({ ...newItem, location: e.target.value })
               }
-              className="border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="bg-[#f5f5f7] border-transparent rounded-xl p-3.5 text-[#1d1d1f] text-sm focus:outline-none focus:ring-2 focus:ring-[#0071e3] transition-all"
               required
             />
           </div>
           <button
             type="submit"
-            className="mt-4 w-full bg-blue-600 text-white font-semibold py-2 rounded-md hover:bg-blue-700 transition-colors"
+            className="w-full bg-[#0071e3] text-white font-medium text-sm py-3.5 rounded-full hover:bg-[#0077ed] transition-colors"
           >
             {activeDay}일 차 일정 추가하기
           </button>
         </form>
 
-        <div className="relative border-l-4 border-blue-500 ml-4 md:ml-6">
+        <div className="relative border-l border-gray-300 ml-4 md:ml-6">
           {currentDaySchedule.length === 0 ? (
-            <div className="pl-8 py-4 text-gray-500 font-medium">
-              등록된 일정이 없습니다. 새 일정을 추가해 보세요!
+            <div className="pl-10 py-4 text-[#86868b] text-sm font-medium">
+              등록된 일정이 없습니다. 새 일정을 추가해 보세요.
             </div>
           ) : (
             currentDaySchedule.map((item) => (
               <div
                 key={item.id}
-                className="mb-10 pl-8 relative flex justify-between items-start"
+                className="mb-10 pl-10 relative flex justify-between items-start group"
               >
-                <div>
-                  <div className="absolute w-6 h-6 bg-blue-500 rounded-full -left-[15px] top-1 border-4 border-white"></div>
-                  <div className="flex flex-col sm:flex-row sm:items-center mb-1">
-                    <span className="text-sm font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full mr-3 w-max">
+                <div className="absolute w-2.5 h-2.5 bg-[#1d1d1f] rounded-full -left-[5px] top-2 shadow-[0_0_0_6px_#f5f5f7]"></div>
+
+                <div className="flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-baseline mb-1">
+                    <span className="text-sm font-semibold text-[#86868b] mr-3 w-max">
                       {item.time}
                     </span>
-                    <h3 className="text-xl font-bold text-gray-800 mt-2 sm:mt-0">
+                    <h3 className="text-lg font-semibold text-[#1d1d1f] mt-1 sm:mt-0 tracking-tight">
                       {item.title}
                     </h3>
                   </div>
-                  <p className="text-gray-600 mt-2 font-medium">
+                  <p className="text-[#86868b] text-sm font-medium mt-1">
                     {item.location}
                   </p>
                 </div>
+
                 <button
                   onClick={() => handleDelete(item.id)}
-                  className="text-red-500 hover:text-red-700 text-sm font-semibold px-2 py-1 mt-1 sm:mt-0"
+                  className="text-[#0071e3] hover:text-[#0077ed] text-sm font-medium px-3 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                 >
                   삭제
                 </button>
