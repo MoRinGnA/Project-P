@@ -8,6 +8,7 @@ import {
 import Navigation from "./components/Navigation";
 import TimelineView from "./components/TimelineView";
 import MapSearchView from "./components/MapSearchView";
+import AiPlannerView from "./components/AiPlannerView";
 import TrashCan from "./components/TrashCan";
 
 function App() {
@@ -22,7 +23,14 @@ function App() {
   });
 
   const [activeDay, setActiveDay] = useState(1);
-  const [activeView, setActiveView] = useState("timeline");
+  const [activeView, setActiveView] = useState("ai");
+  const [isSplitView, setIsSplitView] = useState(false);
+  const [mapSearchState, setMapSearchState] = useState({
+    query: "",
+    timestamp: 0,
+    fromClick: false,
+  });
+  const [mapProvider, setMapProvider] = useState("google");
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -109,12 +117,15 @@ function App() {
   };
 
   const handleEditStart = (item) => {
-    setEditingId(item.id);
-    setEditForm({
-      time: item.time,
-      title: item.title,
-      location: item.location,
+    setMapSearchState({
+      query: item.title,
+      timestamp: Date.now(),
+      fromClick: true,
     });
+
+    if (!isSplitView) {
+      setActiveView("map");
+    }
   };
 
   const handleEditSave = (id) => {
@@ -146,43 +157,114 @@ function App() {
     ];
     newSchedule.sort((a, b) => (a.time > b.time ? 1 : -1));
     setSchedule(newSchedule);
-    setActiveView("timeline");
+
+    if (!isSplitView) {
+      setActiveView("timeline");
+    }
+  };
+
+  const handleGenerateFromAI = (
+    generatedSchedule,
+    totalDays,
+    recommendedProvider,
+  ) => {
+    const newDaysArray = Array.from({ length: totalDays }, (_, i) => i + 1);
+    setDays(newDaysArray);
+
+    setMapProvider(recommendedProvider);
+
+    let currentMaxId =
+      schedule.length > 0 ? Math.max(...schedule.map((item) => item.id)) : 0;
+
+    const newScheduleWithIds = generatedSchedule.map((item) => {
+      currentMaxId += 1;
+      return {
+        id: currentMaxId,
+        day: item.day,
+        time: item.time,
+        title: item.title,
+        location: item.location,
+      };
+    });
+
+    setSchedule(newScheduleWithIds);
+    setActiveDay(1);
+
+    if (!isSplitView) {
+      setActiveView("timeline");
+    }
   };
 
   const currentDaySchedule = schedule.filter((item) => item.day === activeDay);
 
+  const renderTimeline = () => (
+    <div className="relative w-full h-full overflow-hidden">
+      <TimelineView
+        days={days}
+        activeDay={activeDay}
+        setActiveDay={setActiveDay}
+        handleAddDay={handleAddDay}
+        newItem={newItem}
+        setNewItem={setNewItem}
+        handleAddSchedule={handleAddSchedule}
+        currentDaySchedule={currentDaySchedule}
+        editingId={editingId}
+        editForm={editForm}
+        setEditForm={setEditForm}
+        handleEditStart={handleEditStart}
+        handleEditSave={handleEditSave}
+        handleEditCancel={handleEditCancel}
+        handleDelete={handleDelete}
+      />
+      <TrashCan />
+    </div>
+  );
+
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="flex min-h-screen w-full bg-[#fbfbfd]">
-        <Navigation activeView={activeView} setActiveView={setActiveView} />
+      <div className="flex h-screen w-full bg-[#fbfbfd] overflow-hidden">
+        <Navigation
+          activeView={activeView}
+          setActiveView={setActiveView}
+          isSplitView={isSplitView}
+          setIsSplitView={setIsSplitView}
+        />
 
-        <div className="flex-1 ml-20 transition-all duration-300">
-          {activeView === "timeline" ? (
-            <div className="relative w-full h-full">
-              <TimelineView
-                days={days}
-                activeDay={activeDay}
-                setActiveDay={setActiveDay}
-                handleAddDay={handleAddDay}
-                newItem={newItem}
-                setNewItem={setNewItem}
-                handleAddSchedule={handleAddSchedule}
-                currentDaySchedule={currentDaySchedule}
-                editingId={editingId}
-                editForm={editForm}
-                setEditForm={setEditForm}
-                handleEditStart={handleEditStart}
-                handleEditSave={handleEditSave}
-                handleEditCancel={handleEditCancel}
-                handleDelete={handleDelete}
-              />
-              <TrashCan />
+        <div className="flex-1 ml-20 transition-all duration-300 h-full">
+          {isSplitView ? (
+            <div className="flex w-full h-full divide-x divide-[#e5e5ea]">
+              <div className="w-1/2 h-full bg-[#fbfbfd]">
+                {renderTimeline()}
+              </div>
+
+              <div className="w-1/2 h-full bg-white overflow-auto">
+                {activeView === "ai" || activeView === "timeline" ? (
+                  <AiPlannerView onGenerateSchedule={handleGenerateFromAI} />
+                ) : (
+                  <MapSearchView
+                    onAddPlace={handleAddFromMap}
+                    mapSearchState={mapSearchState}
+                    mapProvider={mapProvider}
+                    setMapProvider={setMapProvider}
+                  />
+                )}
+              </div>
             </div>
           ) : (
-            <MapSearchView
-              activeDay={activeDay}
-              onAddPlace={handleAddFromMap}
-            />
+            <div className="w-full h-full overflow-auto">
+              {activeView === "timeline" ? (
+                renderTimeline()
+              ) : activeView === "ai" ? (
+                <AiPlannerView onGenerateSchedule={handleGenerateFromAI} />
+              ) : (
+                <MapSearchView
+                  onAddPlace={handleAddFromMap}
+                  mapSearchState={mapSearchState}
+                  mapProvider={mapProvider}
+                  setMapProvider={setMapProvider}
+                />
+              )}
+            </div>
           )}
         </div>
       </div>
