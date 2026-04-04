@@ -13,18 +13,12 @@ import TrashCan from "./components/TrashCan";
 function App() {
   const [schedule, setSchedule] = useState(() => {
     const saved = localStorage.getItem("project-p-schedule");
-    if (saved) {
-      return JSON.parse(saved);
-    }
-    return [];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [days, setDays] = useState(() => {
     const saved = localStorage.getItem("project-p-days");
-    if (saved) {
-      return JSON.parse(saved);
-    }
-    return [1, 2, 3];
+    return saved ? JSON.parse(saved) : [1, 2, 3];
   });
 
   const [activeDay, setActiveDay] = useState(1);
@@ -97,26 +91,21 @@ function App() {
 
   const handleAddSchedule = (e) => {
     e.preventDefault();
-
     const newId =
       schedule.length > 0
         ? Math.max(...schedule.map((item) => item.id)) + 1
         : 1;
-
     const newSchedule = [
       ...schedule,
       { id: newId, day: activeDay, ...newItem },
     ];
-
     newSchedule.sort((a, b) => (a.time > b.time ? 1 : -1));
-
     setSchedule(newSchedule);
     setNewItem({ time: "", title: "", location: "" });
   };
 
   const handleDelete = (id) => {
-    const filteredSchedule = schedule.filter((item) => item.id !== id);
-    setSchedule(filteredSchedule);
+    setSchedule(schedule.filter((item) => item.id !== id));
   };
 
   const handleEditStart = (item) => {
@@ -130,20 +119,34 @@ function App() {
 
   const handleEditSave = (id) => {
     const updatedSchedule = schedule.map((item) => {
-      if (item.id === id) {
-        return { ...item, ...editForm };
-      }
+      if (item.id === id) return { ...item, ...editForm };
       return item;
     });
-
     updatedSchedule.sort((a, b) => (a.time > b.time ? 1 : -1));
-
     setSchedule(updatedSchedule);
     setEditingId(null);
   };
 
-  const handleEditCancel = () => {
-    setEditingId(null);
+  const handleEditCancel = () => setEditingId(null);
+
+  const handleAddFromMap = (place) => {
+    const newId =
+      schedule.length > 0
+        ? Math.max(...schedule.map((item) => item.id)) + 1
+        : 1;
+    const newSchedule = [
+      ...schedule,
+      {
+        id: newId,
+        day: activeDay,
+        time: "12:00",
+        title: place.place_name,
+        location: place.address_name,
+      },
+    ];
+    newSchedule.sort((a, b) => (a.time > b.time ? 1 : -1));
+    setSchedule(newSchedule);
+    setActiveView("timeline");
   };
 
   const currentDaySchedule = schedule.filter((item) => item.day === activeDay);
@@ -176,7 +179,10 @@ function App() {
               <TrashCan />
             </div>
           ) : (
-            <MapSearchView />
+            <MapSearchView
+              activeDay={activeDay}
+              onAddPlace={handleAddFromMap}
+            />
           )}
         </div>
       </div>
