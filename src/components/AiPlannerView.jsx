@@ -48,7 +48,37 @@ export default function AiPlannerView({ onGenerateSchedule }) {
         .trim();
       const parsedSchedule = JSON.parse(cleanJson);
 
-      onGenerateSchedule(parsedSchedule, days);
+      const domesticKeywords = [
+        "한국",
+        "대한민국",
+        "서울",
+        "부산",
+        "제주",
+        "인천",
+        "대구",
+        "광주",
+        "대전",
+        "울산",
+        "경기",
+        "강원",
+        "충북",
+        "충남",
+        "전북",
+        "전남",
+        "경북",
+        "경남",
+        "국내",
+        "korea",
+        "seoul",
+        "busan",
+        "jeju",
+      ];
+      const isDomestic = domesticKeywords.some((keyword) =>
+        destination.toLowerCase().includes(keyword),
+      );
+      const recommendedProvider = isDomestic ? "kakao" : "google";
+
+      onGenerateSchedule(parsedSchedule, days, recommendedProvider);
     } catch (error) {
       alert(`오류가 발생했습니다.\n이유: ${error.message}`);
     } finally {

@@ -1,10 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import "../styles/MapSearchView.css";
 
-export default function MapSearchView({ onAddPlace }) {
-  const [mapProvider, setMapProvider] = useState("google");
+export default function MapSearchView({
+  onAddPlace,
+  mapSearchState,
+  mapProvider,
+  setMapProvider,
+}) {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   const mapContainer = useRef(null);
   const mapInstance = useRef(null);
@@ -26,6 +32,7 @@ export default function MapSearchView({ onAddPlace }) {
       disableDefaultUI: true,
       zoomControl: true,
     });
+    setIsMapReady(true);
   }, []);
 
   const initKakaoMap = useCallback(() => {
@@ -40,10 +47,118 @@ export default function MapSearchView({ onAddPlace }) {
         mapContainer.current,
         options,
       );
+      setIsMapReady(true);
     });
   }, []);
 
+  const sortRelevantResults = (results, keyword) => {
+    const query = keyword.toLowerCase().replace(/\s+/g, "");
+    return results.sort((a, b) => {
+      const aName = a.name.toLowerCase().replace(/\s+/g, "");
+      const bName = b.name.toLowerCase().replace(/\s+/g, "");
+
+      if (aName === query && bName !== query) return -1;
+      if (bName === query && aName !== query) return 1;
+
+      if (aName.includes(query) && !bName.includes(query)) return -1;
+      if (!aName.includes(query) && bName.includes(query)) return 1;
+
+      return 0;
+    });
+  };
+
+  const performSearch = useCallback(
+    (keyword, fromClick = false) => {
+      if (!keyword.trim() || !mapInstance.current) return;
+
+      setIsSearching(true);
+
+      if (mapProvider === "google") {
+        const service = new window.google.maps.places.PlacesService(
+          mapInstance.current,
+        );
+        service.textSearch({ query: keyword }, (results, status) => {
+          setIsSearching(false);
+          if (status === window.google.maps.places.PlacesServiceStatus.OK) {
+            const formattedResults = results.map((r) => ({
+              id: r.place_id,
+              name: r.name,
+              address: r.formatted_address,
+              position: r.geometry.location,
+            }));
+
+            const sortedResults = sortRelevantResults(
+              formattedResults,
+              keyword,
+            );
+            setSearchResults(sortedResults);
+
+            clearMarkers();
+            const bounds = new window.google.maps.LatLngBounds();
+            sortedResults.forEach((place) => {
+              const marker = new window.google.maps.Marker({
+                map: mapInstance.current,
+                position: place.position,
+                title: place.name,
+              });
+              markers.current.push(marker);
+              bounds.extend(place.position);
+            });
+            mapInstance.current.fitBounds(bounds);
+          } else {
+            setSearchResults([]);
+          }
+        });
+      } else {
+        const ps = new window.kakao.maps.services.Places();
+        const cleanKeyword = keyword
+          .replace(/\([^)]*\)/g, "")
+          .replace(/ 방문| 식사| 관람| 투어| 산책/g, "")
+          .trim();
+
+        ps.keywordSearch(cleanKeyword, (data, status) => {
+          if (status === window.kakao.maps.services.Status.OK) {
+            setIsSearching(false);
+            const formattedResults = data.map((r) => ({
+              id: r.id,
+              name: r.place_name,
+              address: r.address_name,
+              position: new window.kakao.maps.LatLng(r.y, r.x),
+            }));
+
+            const sortedResults = sortRelevantResults(
+              formattedResults,
+              cleanKeyword,
+            );
+            setSearchResults(sortedResults);
+
+            clearMarkers();
+            const bounds = new window.kakao.maps.LatLngBounds();
+            sortedResults.forEach((place) => {
+              const marker = new window.kakao.maps.Marker({
+                map: mapInstance.current,
+                position: place.position,
+              });
+              markers.current.push(marker);
+              bounds.extend(place.position);
+            });
+            mapInstance.current.setBounds(bounds);
+          } else {
+            if (fromClick) {
+              setMapProvider("google");
+            } else {
+              setIsSearching(false);
+              setSearchResults([]);
+            }
+          }
+        });
+      }
+    },
+    [mapProvider, clearMarkers, setMapProvider],
+  );
+
   useEffect(() => {
+    setIsMapReady(false);
     const loadScripts = () => {
       if (!document.getElementById("google-maps-script")) {
         const gScript = document.createElement("script");
@@ -74,6 +189,7 @@ export default function MapSearchView({ onAddPlace }) {
   }, [initGoogleMap, initKakaoMap]);
 
   useEffect(() => {
+    setIsMapReady(false);
     if (mapProvider === "google") {
       initGoogleMap();
     } else {
@@ -81,62 +197,18 @@ export default function MapSearchView({ onAddPlace }) {
     }
   }, [mapProvider, initGoogleMap, initKakaoMap]);
 
-  const handleSearch = () => {
-    if (!searchKeyword.trim()) return;
-
-    if (mapProvider === "google") {
-      const service = new window.google.maps.places.PlacesService(
-        mapInstance.current,
-      );
-      service.textSearch({ query: searchKeyword }, (results, status) => {
-        if (status === window.google.maps.places.PlacesServiceStatus.OK) {
-          const formattedResults = results.map((r) => ({
-            id: r.place_id,
-            name: r.name,
-            address: r.formatted_address,
-          }));
-          setSearchResults(formattedResults);
-
-          clearMarkers();
-          const bounds = new window.google.maps.LatLngBounds();
-          results.forEach((place) => {
-            const marker = new window.google.maps.Marker({
-              map: mapInstance.current,
-              position: place.geometry.location,
-              title: place.name,
-            });
-            markers.current.push(marker);
-            bounds.extend(place.geometry.location);
-          });
-          mapInstance.current.fitBounds(bounds);
-        }
-      });
-    } else {
-      const ps = new window.kakao.maps.services.Places();
-      ps.keywordSearch(searchKeyword, (data, status) => {
-        if (status === window.kakao.maps.services.Status.OK) {
-          const formattedResults = data.map((r) => ({
-            id: r.id,
-            name: r.place_name,
-            address: r.address_name,
-          }));
-          setSearchResults(formattedResults);
-
-          clearMarkers();
-          const bounds = new window.kakao.maps.LatLngBounds();
-          data.forEach((place) => {
-            const position = new window.kakao.maps.LatLng(place.y, place.x);
-            const marker = new window.kakao.maps.Marker({
-              map: mapInstance.current,
-              position: position,
-            });
-            markers.current.push(marker);
-            bounds.extend(position);
-          });
-          mapInstance.current.setBounds(bounds);
-        }
-      });
+  useEffect(() => {
+    if (isMapReady && mapSearchState && mapSearchState.query) {
+      setSearchKeyword(mapSearchState.query);
+      const timeoutId = setTimeout(() => {
+        performSearch(mapSearchState.query, mapSearchState.fromClick);
+      }, 100);
+      return () => clearTimeout(timeoutId);
     }
+  }, [isMapReady, mapSearchState, performSearch]);
+
+  const handleSearch = () => {
+    performSearch(searchKeyword, false);
   };
 
   return (
@@ -190,7 +262,11 @@ export default function MapSearchView({ onAddPlace }) {
           </div>
 
           <div className="map-result-box flex flex-col overflow-y-auto">
-            {searchResults.length > 0 ? (
+            {isSearching ? (
+              <div className="py-20 text-[#007aff] text-center font-medium animate-pulse">
+                장소를 찾고 있습니다...
+              </div>
+            ) : searchResults.length > 0 ? (
               searchResults.map((place) => (
                 <div
                   key={place.id}
@@ -218,6 +294,10 @@ export default function MapSearchView({ onAddPlace }) {
             ) : (
               <div className="py-20 text-[#86868b] text-center font-medium">
                 검색 결과가 없습니다.
+                <br />
+                <span className="text-[13px] mt-2 block">
+                  해외 장소이거나 구체적인 주소라면 Google Maps를 이용해보세요.
+                </span>
               </div>
             )}
           </div>

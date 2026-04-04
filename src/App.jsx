@@ -25,6 +25,12 @@ function App() {
   const [activeDay, setActiveDay] = useState(1);
   const [activeView, setActiveView] = useState("ai");
   const [isSplitView, setIsSplitView] = useState(false);
+  const [mapSearchState, setMapSearchState] = useState({
+    query: "",
+    timestamp: 0,
+    fromClick: false,
+  });
+  const [mapProvider, setMapProvider] = useState("google");
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -111,12 +117,15 @@ function App() {
   };
 
   const handleEditStart = (item) => {
-    setEditingId(item.id);
-    setEditForm({
-      time: item.time,
-      title: item.title,
-      location: item.location,
+    setMapSearchState({
+      query: item.title,
+      timestamp: Date.now(),
+      fromClick: true,
     });
+
+    if (!isSplitView) {
+      setActiveView("map");
+    }
   };
 
   const handleEditSave = (id) => {
@@ -154,9 +163,15 @@ function App() {
     }
   };
 
-  const handleGenerateFromAI = (generatedSchedule, totalDays) => {
+  const handleGenerateFromAI = (
+    generatedSchedule,
+    totalDays,
+    recommendedProvider,
+  ) => {
     const newDaysArray = Array.from({ length: totalDays }, (_, i) => i + 1);
     setDays(newDaysArray);
+
+    setMapProvider(recommendedProvider);
 
     let currentMaxId =
       schedule.length > 0 ? Math.max(...schedule.map((item) => item.id)) : 0;
@@ -227,8 +242,10 @@ function App() {
                   <AiPlannerView onGenerateSchedule={handleGenerateFromAI} />
                 ) : (
                   <MapSearchView
-                    activeDay={activeDay}
                     onAddPlace={handleAddFromMap}
+                    mapSearchState={mapSearchState}
+                    mapProvider={mapProvider}
+                    setMapProvider={setMapProvider}
                   />
                 )}
               </div>
@@ -241,8 +258,10 @@ function App() {
                 <AiPlannerView onGenerateSchedule={handleGenerateFromAI} />
               ) : (
                 <MapSearchView
-                  activeDay={activeDay}
                   onAddPlace={handleAddFromMap}
+                  mapSearchState={mapSearchState}
+                  mapProvider={mapProvider}
+                  setMapProvider={setMapProvider}
                 />
               )}
             </div>
