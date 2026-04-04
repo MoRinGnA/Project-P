@@ -167,8 +167,7 @@ export default function MapSearchView({
       if (!document.getElementById("google-maps-script")) {
         const gScript = document.createElement("script");
         gScript.id = "google-maps-script";
-        gScript.src =
-          "https://maps.googleapis.com/maps/api/js?key=AIzaSyC-xHXy7Rz52cXcED1FYej0_mC0PEXlTC0&libraries=places";
+        gScript.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
         gScript.async = true;
         gScript.onload = initGoogleMap;
         document.head.appendChild(gScript);
@@ -179,8 +178,7 @@ export default function MapSearchView({
       if (!document.getElementById("kakao-map-script")) {
         const kScript = document.createElement("script");
         kScript.id = "kakao-map-script";
-        kScript.src =
-          "//dapi.kakao.com/v2/maps/sdk.js?appkey=614d7804ccdf491e881609d62667019d&libraries=services&autoload=false";
+        kScript.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${import.meta.env.VITE_KAKAO_MAPS_API_KEY}&libraries=services&autoload=false`;
         kScript.async = true;
         kScript.onload = initKakaoMap;
         document.head.appendChild(kScript);

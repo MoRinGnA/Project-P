@@ -8,7 +8,11 @@ export default function TrashCan() {
   return (
     <div
       ref={setNodeRef}
-      className={`trash-can-base ${isOver ? "trash-can-active" : "trash-can-inactive"}`}
+      className={`fixed bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md border transition-all duration-300 z-40 ${
+        isOver
+          ? "bg-red-500 border-red-500 text-white scale-110 shadow-red-500/30"
+          : "bg-white/70 border-gray-200 text-gray-500 scale-100"
+      }`}
     >
       <svg
         className="w-6 h-6"

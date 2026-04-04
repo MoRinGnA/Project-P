@@ -15,12 +15,13 @@ export default function TimelineView({
   editForm,
   setEditForm,
   handleEditStart,
+  handleItemClick,
   handleEditSave,
   handleEditCancel,
   handleDelete,
 }) {
   return (
-    <div className="max-w-3xl mx-auto py-10 px-4">
+    <div className="max-w-3xl mx-auto py-10 px-4 h-full overflow-y-auto overflow-x-hidden scrollbar-hide">
       <h1 className="header-title">Project P</h1>
 
       <DayTabs
@@ -43,6 +44,7 @@ export default function TimelineView({
         editForm={editForm}
         setEditForm={setEditForm}
         onEditStart={handleEditStart}
+        onItemClick={handleItemClick}
         onEditSave={handleEditSave}
         onEditCancel={handleEditCancel}
         onDelete={handleDelete}

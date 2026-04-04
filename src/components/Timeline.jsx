@@ -4,6 +4,7 @@ export default function Timeline({
   editForm,
   setEditForm,
   onEditStart,
+  onItemClick,
   onEditSave,
   onEditCancel,
   onDelete,
@@ -71,7 +72,7 @@ export default function Timeline({
             <>
               <div
                 className="timeline-content-clickable"
-                onClick={() => onEditStart(item)}
+                onClick={() => onItemClick(item)}
               >
                 <div className="flex flex-col sm:flex-row sm:items-baseline mb-1">
                   <span className="text-sm font-semibold text-[#86868b] mr-3 w-max">
@@ -88,13 +89,21 @@ export default function Timeline({
 
               <div className="action-group">
                 <button
-                  onClick={() => onEditStart(item)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onEditStart(item);
+                  }}
                   className="btn-text-blue"
                 >
                   수정
                 </button>
                 <button
-                  onClick={() => onDelete(item.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onDelete(item.id);
+                  }}
                   className="btn-text-red"
                 >
                   삭제

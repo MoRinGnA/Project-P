@@ -3,33 +3,34 @@ import "../styles/MapSearchView.css";
 
 export default function AiPlannerView({ onGenerateSchedule }) {
   const [destination, setDestination] = useState("");
-  const [days, setDays] = useState(1);
+  const [days, setDays] = useState("1");
   const [theme, setTheme] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleDaysChange = (e) => {
+    const value = e.target.value.replace(/[^0-9]/g, "").replace(/^0+/, "");
+    setDays(value);
+  };
 
   const handleGenerate = async () => {
     if (!destination || !theme) return;
 
     setIsLoading(true);
 
+    const API_URL = import.meta.env.DEV
+      ? "http://localhost:3000/api/gemini"
+      : "/api/gemini";
+
     const prompt = `너는 전문 여행 플래너야. ${destination} 여행 일정을 ${days}일치 짜줘. 여행 테마는 ${theme}이야. 반드시 아래의 JSON 배열 형식으로만 응답해. 부가적인 설명이나 마크다운 기호는 절대 넣지 마.\n[\n  {"day": 1, "time": "10:00", "title": "방문 장소 이름", "location": "장소 주소"}\n]`;
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyBD-adW9WUsEoM0QEDbfOF55_tf9GkXk2U`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              responseMimeType: "application/json",
-            },
-          }),
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({ prompt: prompt }),
+      });
 
       if (!response.ok) {
         throw new Error(`API 통신 거부 (코드: ${response.status})`);
@@ -78,7 +79,7 @@ export default function AiPlannerView({ onGenerateSchedule }) {
       );
       const recommendedProvider = isDomestic ? "kakao" : "google";
 
-      onGenerateSchedule(parsedSchedule, days, recommendedProvider);
+      onGenerateSchedule(parsedSchedule, Number(days), recommendedProvider);
     } catch (error) {
       alert(`오류가 발생했습니다.\n이유: ${error.message}`);
     } finally {
@@ -87,8 +88,8 @@ export default function AiPlannerView({ onGenerateSchedule }) {
   };
 
   return (
-    <div className="map-view-container">
-      <div className="mb-8">
+    <div className="flex flex-col items-center justify-center w-full h-full p-8">
+      <div className="w-full max-w-2xl text-left mb-8">
         <h2 className="text-[32px] font-bold text-[#1d1d1f] tracking-tight">
           AI 일정 자동 생성
         </h2>
@@ -117,11 +118,9 @@ export default function AiPlannerView({ onGenerateSchedule }) {
               여행 기간 (일)
             </label>
             <input
-              type="number"
-              min="1"
-              max="10"
+              type="text"
               value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
+              onChange={handleDaysChange}
               className="w-full px-4 py-3 bg-[#f5f5f7] border-none rounded-[12px] text-[#1d1d1f] focus:outline-none focus:ring-2 focus:ring-[#007aff]"
             />
           </div>
