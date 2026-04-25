@@ -1,15 +1,20 @@
 import { useState, useEffect } from "react";
+import { io } from "socket.io-client";
 import {
   DndContext,
   PointerSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import Navigation from "./components/Navigation";
 import TimelineView from "./components/TimelineView";
 import MapSearchView from "./components/MapSearchView";
 import AiPlannerView from "./components/AiPlannerView";
 import TrashCan from "./components/TrashCan";
+import CursorOverlay from "./components/CursorOverlay";
+
+const socket = io("http://localhost:3000");
 
 function App() {
   const [schedule, setSchedule] = useState(() => {
@@ -32,6 +37,18 @@ function App() {
   });
   const [mapProvider, setMapProvider] = useState("google");
 
+  const [newItem, setNewItem] = useState({
+    time: "",
+    title: "",
+    location: "",
+  });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    time: "",
+    title: "",
+    location: "",
+  });
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -41,25 +58,27 @@ function App() {
   );
 
   useEffect(() => {
+    socket.on("connect", () => {
+      console.log("백엔드 서버와 실시간 통신이 연결되었습니다!");
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("소켓 연결 에러:", err.message);
+    });
+
+    return () => {
+      socket.off("connect");
+      socket.off("connect_error");
+    };
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem("project-p-schedule", JSON.stringify(schedule));
   }, [schedule]);
 
   useEffect(() => {
     localStorage.setItem("project-p-days", JSON.stringify(days));
   }, [days]);
-
-  const [newItem, setNewItem] = useState({
-    time: "",
-    title: "",
-    location: "",
-  });
-
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({
-    time: "",
-    title: "",
-    location: "",
-  });
 
   const handleAddDay = () => {
     const nextDay = days.length > 0 ? Math.max(...days) + 1 : 1;
@@ -179,7 +198,6 @@ function App() {
   ) => {
     const newDaysArray = Array.from({ length: totalDays }, (_, i) => i + 1);
     setDays(newDaysArray);
-
     setMapProvider(recommendedProvider);
 
     let currentMaxId =
@@ -231,8 +249,15 @@ function App() {
   );
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      onDragEnd={handleDragEnd}
+      autoScroll={false}
+      modifiers={[restrictToWindowEdges]}
+    >
       <div className="fixed inset-0 w-screen h-screen bg-[#fbfbfd] flex overflow-hidden">
+        <CursorOverlay socket={socket} />
+
         <Navigation
           activeView={activeView}
           setActiveView={setActiveView}
