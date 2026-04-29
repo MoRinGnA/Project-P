@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import AddScheduleModal from "./AddScheduleModal";
 import "../styles/MapSearchView.css";
 
 export default function MapSearchView({
@@ -6,14 +7,21 @@ export default function MapSearchView({
   mapSearchState,
   mapProvider,
   setMapProvider,
+  days = [1],
+  activeDay = 1,
 }) {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isMapReady, setIsMapReady] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  const mapContainer = useRef(null);
-  const mapInstance = useRef(null);
+  // 모달에 전달할 장소 정보 상태
+  const [pendingPlace, setPendingPlace] = useState(null);
+
+  const googleMapContainer = useRef(null);
+  const kakaoMapContainer = useRef(null);
+  const googleMapInstance = useRef(null);
+  const kakaoMapInstance = useRef(null);
   const markers = useRef([]);
 
   const clearMarkers = useCallback(() => {
@@ -24,36 +32,52 @@ export default function MapSearchView({
   }, []);
 
   const initGoogleMap = useCallback(() => {
-    if (!window.google || !window.google.maps || !mapContainer.current) return;
+    if (!window.google || !window.google.maps || !googleMapContainer.current)
+      return;
 
-    mapInstance.current = new window.google.maps.Map(mapContainer.current, {
-      center: { lat: 37.5665, lng: 126.978 },
-      zoom: 13,
-      disableDefaultUI: true,
-      zoomControl: true,
-    });
+    if (!googleMapInstance.current) {
+      googleMapInstance.current = new window.google.maps.Map(
+        googleMapContainer.current,
+        {
+          center: { lat: 37.5665, lng: 126.978 },
+          zoom: 13,
+          disableDefaultUI: true,
+          zoomControl: true,
+        },
+      );
+    }
     setIsMapReady(true);
   }, []);
 
   const initKakaoMap = useCallback(() => {
-    if (!window.kakao || !window.kakao.maps || !mapContainer.current) return;
+    if (!window.kakao || !window.kakao.maps || !kakaoMapContainer.current)
+      return;
 
     window.kakao.maps.load(() => {
-      const options = {
-        center: new window.kakao.maps.LatLng(37.566826, 126.978656),
-        level: 3,
-      };
-
-      const map = new window.kakao.maps.Map(mapContainer.current, options);
-      setMapInstance(map);
-
-      // 서비스 라이브러리가 존재하는지 확인 후 상태 업데이트
-      if (window.kakao.maps.services) {
-        setIsServiceLoaded(true);
-        console.log("카카오 맵 및 서비스 라이브러리 준비 완료");
+      if (!kakaoMapInstance.current) {
+        const options = {
+          center: new window.kakao.maps.LatLng(37.566826, 126.978656),
+          level: 3,
+        };
+        kakaoMapInstance.current = new window.kakao.maps.Map(
+          kakaoMapContainer.current,
+          options,
+        );
       }
+      setIsMapReady(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (mapProvider === "kakao" && kakaoMapInstance.current && window.kakao) {
+      window.kakao.maps.load(() => {
+        kakaoMapInstance.current.relayout();
+        kakaoMapInstance.current.setCenter(
+          new window.kakao.maps.LatLng(37.566826, 126.978656),
+        );
+      });
+    }
+  }, [mapProvider]);
 
   const sortRelevantResults = (results, keyword) => {
     const query = keyword.toLowerCase().replace(/\s+/g, "");
@@ -73,13 +97,14 @@ export default function MapSearchView({
 
   const performSearch = useCallback(
     (keyword, fromClick = false) => {
-      if (!keyword.trim() || !mapInstance.current) return;
+      if (!keyword.trim()) return;
 
       setIsSearching(true);
 
       if (mapProvider === "google") {
+        if (!googleMapInstance.current) return;
         const service = new window.google.maps.places.PlacesService(
-          mapInstance.current,
+          googleMapInstance.current,
         );
         service.textSearch({ query: keyword }, (results, status) => {
           setIsSearching(false);
@@ -101,19 +126,20 @@ export default function MapSearchView({
             const bounds = new window.google.maps.LatLngBounds();
             sortedResults.forEach((place) => {
               const marker = new window.google.maps.Marker({
-                map: mapInstance.current,
+                map: googleMapInstance.current,
                 position: place.position,
                 title: place.name,
               });
               markers.current.push(marker);
               bounds.extend(place.position);
             });
-            mapInstance.current.fitBounds(bounds);
+            googleMapInstance.current.fitBounds(bounds);
           } else {
             setSearchResults([]);
           }
         });
       } else {
+        if (!window.kakao || !kakaoMapInstance.current) return;
         const ps = new window.kakao.maps.services.Places();
         const cleanKeyword = keyword
           .replace(/\([^)]*\)/g, "")
@@ -140,13 +166,13 @@ export default function MapSearchView({
             const bounds = new window.kakao.maps.LatLngBounds();
             sortedResults.forEach((place) => {
               const marker = new window.kakao.maps.Marker({
-                map: mapInstance.current,
+                map: kakaoMapInstance.current,
                 position: place.position,
               });
               markers.current.push(marker);
               bounds.extend(place.position);
             });
-            mapInstance.current.setBounds(bounds);
+            kakaoMapInstance.current.setBounds(bounds);
           } else {
             if (fromClick) {
               setMapProvider("google");
@@ -191,15 +217,6 @@ export default function MapSearchView({
   }, [initGoogleMap, initKakaoMap]);
 
   useEffect(() => {
-    setIsMapReady(false);
-    if (mapProvider === "google") {
-      initGoogleMap();
-    } else {
-      initKakaoMap();
-    }
-  }, [mapProvider, initGoogleMap, initKakaoMap]);
-
-  useEffect(() => {
     if (isMapReady && mapSearchState && mapSearchState.query) {
       setSearchKeyword(mapSearchState.query);
       const timeoutId = setTimeout(() => {
@@ -214,7 +231,7 @@ export default function MapSearchView({
   };
 
   return (
-    <div className="map-view-container">
+    <div className="map-view-container relative">
       <div className="map-header">
         <div>
           <h2 className="text-[32px] font-bold text-[#1d1d1f] tracking-tight">
@@ -247,7 +264,7 @@ export default function MapSearchView({
         </div>
       </div>
 
-      <div className="flex flex-1 gap-6 h-[calc(100vh-220px)]">
+      <div className="flex flex-1 gap-6 h-[calc(100vh-220px)] relative">
         <div className="map-search-panel">
           <div className="map-search-box">
             <input
@@ -282,7 +299,7 @@ export default function MapSearchView({
                   </div>
                   <button
                     onClick={() =>
-                      onAddPlace({
+                      setPendingPlace({
                         place_name: place.name,
                         address_name: place.address,
                       })
@@ -305,11 +322,27 @@ export default function MapSearchView({
           </div>
         </div>
 
-        <div className="map-render-area flex-1">
+        <div className="map-render-area flex-1 relative rounded-[24px] overflow-hidden bg-[#f5f5f7]">
           <div
-            ref={mapContainer}
-            className="w-full h-full rounded-[24px]"
+            ref={googleMapContainer}
+            className="absolute inset-0"
+            style={{ display: mapProvider === "google" ? "block" : "none" }}
           ></div>
+
+          <div
+            ref={kakaoMapContainer}
+            className="absolute inset-0"
+            style={{ display: mapProvider === "kakao" ? "block" : "none" }}
+          ></div>
+
+          {/* 분리된 모달 컴포넌트 렌더링 */}
+          <AddScheduleModal
+            place={pendingPlace}
+            days={days}
+            activeDay={activeDay}
+            onClose={() => setPendingPlace(null)}
+            onAdd={onAddPlace}
+          />
         </div>
       </div>
     </div>

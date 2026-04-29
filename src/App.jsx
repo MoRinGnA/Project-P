@@ -58,17 +58,20 @@ function App() {
   );
 
   useEffect(() => {
-    socket.on("connect", () => {
-      console.log("백엔드 서버와 실시간 통신이 연결되었습니다!");
+    socket.on("connect_error", (err) => {});
+
+    socket.on("schedule_updated", (newSchedule) => {
+      setSchedule(newSchedule);
     });
 
-    socket.on("connect_error", (err) => {
-      console.error("소켓 연결 에러:", err.message);
+    socket.on("days_updated", (newDays) => {
+      setDays(newDays);
     });
 
     return () => {
-      socket.off("connect");
       socket.off("connect_error");
+      socket.off("schedule_updated");
+      socket.off("days_updated");
     };
   }, []);
 
@@ -82,7 +85,9 @@ function App() {
 
   const handleAddDay = () => {
     const nextDay = days.length > 0 ? Math.max(...days) + 1 : 1;
-    setDays([...days, nextDay]);
+    const newDays = [...days, nextDay];
+    setDays(newDays);
+    socket.emit("days_update", newDays);
     setActiveDay(nextDay);
   };
 
@@ -107,6 +112,8 @@ function App() {
 
       setDays(newDays);
       setSchedule(newSchedule);
+      socket.emit("schedule_update", newSchedule);
+      socket.emit("days_update", newDays);
 
       if (activeDay === dayToDelete) {
         setActiveDay(1);
@@ -128,11 +135,14 @@ function App() {
     ];
     newSchedule.sort((a, b) => (a.time > b.time ? 1 : -1));
     setSchedule(newSchedule);
+    socket.emit("schedule_update", newSchedule);
     setNewItem({ time: "", title: "", location: "" });
   };
 
   const handleDelete = (id) => {
-    setSchedule(schedule.filter((item) => item.id !== id));
+    const newSchedule = schedule.filter((item) => item.id !== id);
+    setSchedule(newSchedule);
+    socket.emit("schedule_update", newSchedule);
   };
 
   const handleEditStart = (item) => {
@@ -163,6 +173,7 @@ function App() {
     });
     updatedSchedule.sort((a, b) => (a.time > b.time ? 1 : -1));
     setSchedule(updatedSchedule);
+    socket.emit("schedule_update", updatedSchedule);
     setEditingId(null);
   };
 
@@ -185,6 +196,7 @@ function App() {
     ];
     newSchedule.sort((a, b) => (a.time > b.time ? 1 : -1));
     setSchedule(newSchedule);
+    socket.emit("schedule_update", newSchedule);
 
     if (!isSplitView) {
       setActiveView("timeline");
@@ -198,6 +210,7 @@ function App() {
   ) => {
     const newDaysArray = Array.from({ length: totalDays }, (_, i) => i + 1);
     setDays(newDaysArray);
+    socket.emit("days_update", newDaysArray);
     setMapProvider(recommendedProvider);
 
     let currentMaxId =
@@ -215,6 +228,7 @@ function App() {
     });
 
     setSchedule(newScheduleWithIds);
+    socket.emit("schedule_update", newScheduleWithIds);
     setActiveDay(1);
 
     if (!isSplitView) {
