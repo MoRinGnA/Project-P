@@ -15,7 +15,6 @@ export default function MapSearchView({
   const [isMapReady, setIsMapReady] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  // 모달에 전달할 장소 정보 상태
   const [pendingPlace, setPendingPlace] = useState(null);
 
   const googleMapContainer = useRef(null);
