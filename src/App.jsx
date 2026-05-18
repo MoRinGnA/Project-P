@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Routes, Route, useNavigate, useMatch } from "react-router-dom";
 import { io } from "socket.io-client";
 import {
   DndContext,
@@ -23,6 +24,10 @@ import ScheduleCard from "./components/ScheduleCard";
 const socket = io("http://localhost:3000");
 
 function App() {
+  const navigate = useNavigate();
+  const match = useMatch("/planner/:roomId");
+  const roomId = match?.params?.roomId;
+
   const [schedule, setSchedule] = useState(() => {
     const saved = localStorage.getItem("project-p-schedule");
     return saved ? JSON.parse(saved) : [];
@@ -38,7 +43,7 @@ function App() {
 
   const [activeId, setActiveId] = useState(null);
   const [activeDay, setActiveDay] = useState(1);
-  const [activeView, setActiveView] = useState("ai");
+  const [activeView, setActiveView] = useState("timeline");
   const [isSplitView, setIsSplitView] = useState(false);
   const [mapSearchState, setMapSearchState] = useState({
     query: "",
@@ -52,6 +57,12 @@ function App() {
       activationConstraint: { distance: 3 },
     }),
   );
+
+  useEffect(() => {
+    if (roomId) {
+      socket.emit("join_room", roomId);
+    }
+  }, [roomId]);
 
   useEffect(() => {
     socket.on("schedule_updated", (newSchedule) => setSchedule(newSchedule));
@@ -144,64 +155,40 @@ function App() {
       ]}
     >
       <div className="fixed inset-0 w-screen h-screen bg-[#fbfbfd] flex overflow-hidden font-sans text-left">
-        <CursorOverlay socket={socket} />
-        <Navigation
-          activeView={activeView}
-          setActiveView={setActiveView}
-          isSplitView={isSplitView}
-          setIsSplitView={setIsSplitView}
-        />
+        {roomId && <CursorOverlay socket={socket} roomId={roomId} />}
 
-        <div className="flex-1 ml-20 h-full relative overflow-hidden">
-          <div
-            className={`flex w-full h-full ${isSplitView ? "divide-x divide-[#e5e5ea]" : ""}`}
-          >
-            {(activeView === "timeline" || isSplitView) && (
-              <div
-                className={`${isSplitView ? "w-1/2" : "w-full"} h-full overflow-y-auto scrollbar-hide text-left`}
-              >
-                <TimelineView
-                  days={days}
-                  setDays={setDays}
-                  activeDay={activeDay}
-                  setActiveDay={setActiveDay}
-                  schedule={schedule}
-                  setSchedule={setSchedule}
-                  socket={socket}
-                  targetBudget={targetBudget}
-                  onDeleteDay={(d) => {
-                    const newDays = days
-                      .filter((v) => v !== d)
-                      .map((_, i) => i + 1);
-                    const newSchedule = schedule
-                      .filter((s) => s.day !== d)
-                      .map((s) => (s.day > d ? { ...s, day: s.day - 1 } : s));
-                    setDays(newDays);
-                    setSchedule(newSchedule);
-                    socket.emit("days_update", newDays);
-                    socket.emit("schedule_update", newSchedule);
-                    if (activeDay === d) setActiveDay(1);
-                    else if (activeDay > d) setActiveDay(activeDay - 1);
-                  }}
-                  onItemClick={(item) => {
-                    setMapSearchState({
-                      query: item.title,
-                      timestamp: Date.now(),
-                      fromClick: true,
-                    });
-                    if (!isSplitView) setActiveView("map");
-                  }}
-                />
-              </div>
-            )}
+        {roomId && (
+          <Navigation
+            activeView={activeView}
+            setActiveView={(view) => {
+              if (view === "ai") {
+                if (
+                  window.confirm(
+                    "현재 화면을 벗어나시겠습니까? 기존에 작성하던 내용이 모두 사라집니다!",
+                  )
+                ) {
+                  setActiveView("timeline");
+                  navigate("/");
+                }
+              } else {
+                setActiveView(view);
+              }
+            }}
+            isSplitView={isSplitView}
+            setIsSplitView={setIsSplitView}
+          />
+        )}
 
-            {activeView !== "timeline" && (
-              <div
-                className={`${isSplitView ? "w-1/2" : "w-full"} h-full bg-white overflow-y-auto`}
-              >
-                {activeView === "ai" ? (
+        <div
+          className={`flex-1 ${roomId ? "ml-20" : "ml-0"} h-full relative overflow-hidden`}
+        >
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <div className="w-full h-full bg-white overflow-y-auto">
                   <AiPlannerView
-                    onGenerateSchedule={(s, d, p, b) => {
+                    onGenerateSchedule={(s, d, type, b) => {
                       const newDaysArray = Array.from(
                         { length: d },
                         (_, i) => i + 1,
@@ -215,19 +202,81 @@ function App() {
                       setActiveView("timeline");
                     }}
                   />
-                ) : (
-                  <MapSearchView
-                    mapSearchState={mapSearchState}
-                    mapProvider={mapProvider}
-                    setMapProvider={setMapProvider}
-                    days={days}
-                    activeDay={activeDay}
-                    onAddPlace={handleAddScheduleFromMap}
-                  />
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              }
+            />
+
+            <Route
+              path="/planner/:roomId"
+              element={
+                <div
+                  className={`flex w-full h-full ${
+                    isSplitView ? "divide-x divide-[#e5e5ea]" : ""
+                  }`}
+                >
+                  {(activeView === "timeline" || isSplitView) && (
+                    <div
+                      className={`${
+                        isSplitView ? "w-1/2" : "w-full"
+                      } h-full overflow-y-auto scrollbar-hide text-left`}
+                    >
+                      <TimelineView
+                        days={days}
+                        setDays={setDays}
+                        activeDay={activeDay}
+                        setActiveDay={setActiveDay}
+                        schedule={schedule}
+                        setSchedule={setSchedule}
+                        socket={socket}
+                        targetBudget={targetBudget}
+                        onDeleteDay={(d) => {
+                          const newDays = days
+                            .filter((v) => v !== d)
+                            .map((_, i) => i + 1);
+                          const newSchedule = schedule
+                            .filter((s) => s.day !== d)
+                            .map((s) =>
+                              s.day > d ? { ...s, day: s.day - 1 } : s,
+                            );
+                          setDays(newDays);
+                          setSchedule(newSchedule);
+                          socket.emit("days_update", newDays);
+                          socket.emit("schedule_update", newSchedule);
+                          if (activeDay === d) setActiveDay(1);
+                          else if (activeDay > d) setActiveDay(activeDay - 1);
+                        }}
+                        onItemClick={(item) => {
+                          setMapSearchState({
+                            query: item.title,
+                            timestamp: Date.now(),
+                            fromClick: true,
+                          });
+                          if (!isSplitView) setActiveView("map");
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {(activeView === "map" || isSplitView) && (
+                    <div
+                      className={`${
+                        isSplitView ? "w-1/2" : "w-full"
+                      } h-full bg-white overflow-y-auto`}
+                    >
+                      <MapSearchView
+                        mapSearchState={mapSearchState}
+                        mapProvider={mapProvider}
+                        setMapProvider={setMapProvider}
+                        days={days}
+                        activeDay={activeDay}
+                        onAddPlace={handleAddScheduleFromMap}
+                      />
+                    </div>
+                  )}
+                </div>
+              }
+            />
+          </Routes>
         </div>
       </div>
 

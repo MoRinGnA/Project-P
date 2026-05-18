@@ -9,12 +9,18 @@ export default function AddScheduleModal({
 }) {
   const [selectedDay, setSelectedDay] = useState(activeDay);
   const [selectedTime, setSelectedTime] = useState("12:00");
+  const [cost, setCost] = useState("");
 
   useEffect(() => {
     setSelectedDay(activeDay);
   }, [activeDay]);
 
   if (!place) return null;
+
+  const handleCostChange = (e) => {
+    const value = e.target.value.replace(/[^0-9]/g, "");
+    setCost(value);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999] transition-opacity duration-300">
@@ -50,7 +56,7 @@ export default function AddScheduleModal({
           </select>
         </div>
 
-        <div className="mb-10">
+        <div className="mb-6">
           <label className="block text-[13px] font-semibold text-[#1d1d1f] mb-2.5">
             방문 시간
           </label>
@@ -58,6 +64,19 @@ export default function AddScheduleModal({
             type="time"
             value={selectedTime}
             onChange={(e) => setSelectedTime(e.target.value)}
+            className="w-full bg-[#f5f5f7] border-none rounded-xl py-3.5 px-4 text-[16px] text-[#1d1d1f] focus:ring-2 focus:ring-[#007aff] transition-all outline-none"
+          />
+        </div>
+
+        <div className="mb-10">
+          <label className="block text-[13px] font-semibold text-[#1d1d1f] mb-2.5">
+            예상 비용 (원)
+          </label>
+          <input
+            type="text"
+            value={cost}
+            onChange={handleCostChange}
+            placeholder="예: 15000"
             className="w-full bg-[#f5f5f7] border-none rounded-xl py-3.5 px-4 text-[16px] text-[#1d1d1f] focus:ring-2 focus:ring-[#007aff] transition-all outline-none"
           />
         </div>
@@ -75,6 +94,7 @@ export default function AddScheduleModal({
                 ...place,
                 day: selectedDay,
                 time: selectedTime,
+                cost: Number(cost) || 0,
               });
               onClose();
             }}
