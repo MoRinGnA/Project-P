@@ -12,29 +12,39 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });
 
-app.use(cors({ origin: "http://localhost:5173" }));
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 io.on("connection", (socket) => {
+  socket.on("join_room", (roomId) => {
+    socket.join(roomId);
+  });
+
   socket.on("cursor_move", (data) => {
-    socket.broadcast.emit("cursor_update", { id: socket.id, ...data });
+    if (data.roomId) {
+      socket.to(data.roomId).emit("cursor_update", { id: socket.id, ...data });
+    }
   });
 
-  socket.on("schedule_update", (newSchedule) => {
-    socket.broadcast.emit("schedule_updated", newSchedule);
+  socket.on("schedule_update", (data) => {
+    if (data.roomId) {
+      socket.to(data.roomId).emit("schedule_updated", data.newSchedule);
+    }
   });
 
-  socket.on("days_update", (newDays) => {
-    socket.broadcast.emit("days_updated", newDays);
+  socket.on("days_update", (data) => {
+    if (data.roomId) {
+      socket.to(data.roomId).emit("days_updated", data.newDays);
+    }
   });
 
   socket.on("disconnect", () => {
-    socket.broadcast.emit("user_disconnected", socket.id);
+    io.emit("user_disconnected", socket.id);
   });
 });
 

@@ -44,7 +44,7 @@ export default function AiPlannerView({ onGenerateSchedule }) {
     setIsLoading(true);
 
     const API_URL = import.meta.env.DEV
-      ? "http://localhost:3000/api/gemini"
+      ? `http://${window.location.hostname}:3000/api/gemini`
       : "/api/gemini";
 
     const budgetPrompt = budget
@@ -125,23 +125,6 @@ ${budgetPrompt}
     navigate(`/planner/${newRoomId}`);
   };
 
-  const handleCreateLink = async () => {
-    if (!days) return;
-    const newRoomId = uuidv4();
-    const inviteLink = `${window.location.origin}/planner/${newRoomId}`;
-
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-      alert("초대 링크가 복사되었습니다! 동행자에게 공유해주세요.");
-    } catch (err) {
-      console.error(err);
-      alert("링크 복사에 실패했습니다. 방으로 먼저 이동합니다.");
-    }
-
-    onGenerateSchedule([], Number(days), "empty", Number(budget) || 0);
-    navigate(`/planner/${newRoomId}`);
-  };
-
   return (
     <div className="flex flex-col items-center justify-center w-full h-full p-12 bg-white">
       <div className="w-full max-w-lg">
@@ -164,7 +147,7 @@ ${budgetPrompt}
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
               placeholder="어디로 떠나시나요?"
-              className="w-full px-5 py-4 bg-[#f5f5f7] border-none rounded-[14px] text-[17px] focus:ring-2 focus:ring-[#007aff] outline-none transition-all"
+              className="w-full px-5 py-4 bg-[#f5f5f7] border-none rounded-[14px] text-[17px] focus:bg-white focus:ring-2 focus:ring-[#007aff] focus:shadow-[0_0_0_4px_rgba(0,122,255,0.15)] outline-none transition-all duration-300"
             />
           </div>
 
@@ -177,7 +160,7 @@ ${budgetPrompt}
                 type="number"
                 value={days}
                 onChange={(e) => setDays(e.target.value)}
-                className="w-full px-5 py-4 bg-[#f5f5f7] border-none rounded-[14px] text-[17px] outline-none"
+                className="w-full px-5 py-4 bg-[#f5f5f7] border-none rounded-[14px] text-[17px] focus:bg-white focus:ring-2 focus:ring-[#007aff] focus:shadow-[0_0_0_4px_rgba(0,122,255,0.15)] outline-none transition-all duration-300"
               />
             </div>
             <div className="flex-[2] space-y-2">
@@ -190,7 +173,7 @@ ${budgetPrompt}
                   value={budget}
                   onChange={handleBudgetChange}
                   placeholder="예: 500000"
-                  className="w-full px-5 py-4 bg-[#f5f5f7] border-none rounded-[14px] text-[17px] outline-none font-medium pr-16"
+                  className="w-full px-5 py-4 bg-[#f5f5f7] border-none rounded-[14px] text-[17px] focus:bg-white focus:ring-2 focus:ring-[#007aff] focus:shadow-[0_0_0_4px_rgba(0,122,255,0.15)] outline-none font-medium pr-16 transition-all duration-300"
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[#86868b] text-[12px] font-medium pointer-events-none">
                   {budget ? `${Number(budget).toLocaleString()}원` : ""}
@@ -208,46 +191,57 @@ ${budgetPrompt}
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
               placeholder="예: 맛집 탐방, 힐링"
-              className="w-full px-5 py-4 bg-[#f5f5f7] border-none rounded-[14px] text-[17px] outline-none"
+              className="w-full px-5 py-4 bg-[#f5f5f7] border-none rounded-[14px] text-[17px] focus:bg-white focus:ring-2 focus:ring-[#007aff] focus:shadow-[0_0_0_4px_rgba(0,122,255,0.15)] outline-none transition-all duration-300"
             />
           </div>
 
           <button
             onClick={handleGenerate}
             disabled={isLoading}
-            className={`w-full py-4 rounded-[14px] text-white text-[17px] font-semibold transition-all shadow-md ${
+            className={`relative w-full rounded-[14px] text-[17px] font-semibold transition-all duration-300 overflow-hidden ${
               isLoading
-                ? "bg-[#d2d2d7] cursor-not-allowed"
-                : "bg-[#007aff] hover:bg-[#0071e3] active:scale-[0.98]"
+                ? "cursor-not-allowed shadow-md"
+                : "bg-[#007aff] text-white hover:bg-[#0071e3] shadow-[0_4px_14px_rgba(0,122,255,0.3)] active:scale-[0.98]"
             }`}
           >
-            {isLoading
-              ? loadingMessages[msgIndex]
-              : "AI 자동 생성으로 시작하기"}
+            {isLoading && (
+              <>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300%] aspect-square">
+                  <div
+                    className="w-full h-full animate-spin bg-[conic-gradient(from_0deg_at_50%_50%,transparent_0%,transparent_75%,#5ac8fa_90%,#007aff_100%)]"
+                    style={{ animationDuration: "2.5s" }}
+                  />
+                </div>
+                <div className="absolute inset-[2.5px] bg-[#f5f5f7] rounded-[11.5px] z-10" />
+              </>
+            )}
+            <div
+              className={`relative z-20 w-full py-4 flex items-center justify-center ${
+                isLoading
+                  ? "text-[#007aff] font-bold animate-pulse"
+                  : "text-white"
+              }`}
+            >
+              {isLoading
+                ? loadingMessages[msgIndex]
+                : "AI 자동 생성으로 시작하기"}
+            </div>
           </button>
 
           <div className="flex items-center my-6">
             <div className="flex-1 border-b border-[#e5e5ea]"></div>
             <span className="px-4 text-[13px] font-semibold text-[#86868b]">
-              또는 직접 만들기
+              또는
             </span>
             <div className="flex-1 border-b border-[#e5e5ea]"></div>
           </div>
 
-          <div className="flex gap-4">
-            <button
-              onClick={handleEmptyStart}
-              className="flex-1 py-4 rounded-[14px] text-[15px] font-semibold border border-[#d2d2d7] bg-transparent text-[#1d1d1f] hover:bg-[#f5f5f7] transition-all"
-            >
-              혼자서 시작하기
-            </button>
-            <button
-              onClick={handleCreateLink}
-              className="flex-1 py-4 rounded-[14px] text-[15px] font-semibold border border-[#007aff] bg-transparent text-[#007aff] hover:bg-[#f0f7ff] transition-all"
-            >
-              초대 링크 만들기
-            </button>
-          </div>
+          <button
+            onClick={handleEmptyStart}
+            className="w-full py-4 rounded-[14px] text-[16px] font-semibold bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#e5e5ea] transition-all duration-200 active:scale-[0.98]"
+          >
+            혼자서 시작하기
+          </button>
         </div>
       </div>
     </div>

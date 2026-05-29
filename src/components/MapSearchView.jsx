@@ -79,16 +79,44 @@ export default function MapSearchView({
   }, [mapProvider]);
 
   const sortRelevantResults = (results, keyword) => {
-    const query = keyword.toLowerCase().replace(/\s+/g, "");
+    const cleanKeyword = keyword.toLowerCase().replace(/\s+/g, "");
+    const tokens = keyword
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t.length > 0);
+
     return results.sort((a, b) => {
       const aName = a.name.toLowerCase().replace(/\s+/g, "");
       const bName = b.name.toLowerCase().replace(/\s+/g, "");
+      const aAddr = a.address.toLowerCase();
+      const bAddr = b.address.toLowerCase();
 
-      if (aName === query && bName !== query) return -1;
-      if (bName === query && aName !== query) return 1;
+      let aScore = 0;
+      let bScore = 0;
 
-      if (aName.includes(query) && !bName.includes(query)) return -1;
-      if (!aName.includes(query) && bName.includes(query)) return 1;
+      if (aName === cleanKeyword) aScore += 200;
+      if (bName === cleanKeyword) bScore += 200;
+
+      if (aName.includes(cleanKeyword)) aScore += 100;
+      if (bName.includes(cleanKeyword)) bScore += 100;
+
+      tokens.forEach((token) => {
+        const cleanToken = token.replace(/\s+/g, "");
+        if (aName.includes(cleanToken)) aScore += 20;
+        if (bName.includes(cleanToken)) bScore += 20;
+
+        if (token.length >= 2) {
+          const regionHint = token.substring(0, 2);
+          if (aAddr.includes(regionHint)) aScore += 60;
+          if (bAddr.includes(regionHint)) bScore += 60;
+          if (aName.includes(regionHint)) aScore += 10;
+          if (bName.includes(regionHint)) bScore += 10;
+        }
+      });
+
+      if (aScore !== bScore) {
+        return bScore - aScore;
+      }
 
       return 0;
     });
@@ -123,16 +151,26 @@ export default function MapSearchView({
 
             clearMarkers();
             const bounds = new window.google.maps.LatLngBounds();
-            sortedResults.forEach((place) => {
+            sortedResults.forEach((place, index) => {
               const marker = new window.google.maps.Marker({
                 map: googleMapInstance.current,
                 position: place.position,
                 title: place.name,
               });
               markers.current.push(marker);
-              bounds.extend(place.position);
+              if (index < 3) {
+                bounds.extend(place.position);
+              }
             });
-            googleMapInstance.current.fitBounds(bounds);
+
+            if (sortedResults.length > 0) {
+              if (fromClick || sortedResults.length === 1) {
+                googleMapInstance.current.setCenter(sortedResults[0].position);
+                googleMapInstance.current.setZoom(14);
+              } else {
+                googleMapInstance.current.fitBounds(bounds);
+              }
+            }
           } else {
             setSearchResults([]);
           }
@@ -163,15 +201,25 @@ export default function MapSearchView({
 
             clearMarkers();
             const bounds = new window.kakao.maps.LatLngBounds();
-            sortedResults.forEach((place) => {
+            sortedResults.forEach((place, index) => {
               const marker = new window.kakao.maps.Marker({
                 map: kakaoMapInstance.current,
                 position: place.position,
               });
               markers.current.push(marker);
-              bounds.extend(place.position);
+              if (index < 3) {
+                bounds.extend(place.position);
+              }
             });
-            kakaoMapInstance.current.setBounds(bounds);
+
+            if (sortedResults.length > 0) {
+              if (fromClick || sortedResults.length === 1) {
+                kakaoMapInstance.current.setCenter(sortedResults[0].position);
+                kakaoMapInstance.current.setLevel(5);
+              } else {
+                kakaoMapInstance.current.setBounds(bounds);
+              }
+            }
           } else {
             if (fromClick) {
               setMapProvider("google");
@@ -227,6 +275,18 @@ export default function MapSearchView({
 
   const handleSearch = () => {
     performSearch(searchKeyword, false);
+  };
+
+  const handleResultClick = (place) => {
+    if (mapProvider === "google") {
+      if (!googleMapInstance.current) return;
+      googleMapInstance.current.setCenter(place.position);
+      googleMapInstance.current.setZoom(14);
+    } else {
+      if (!kakaoMapInstance.current) return;
+      kakaoMapInstance.current.setCenter(place.position);
+      kakaoMapInstance.current.setLevel(5);
+    }
   };
 
   return (
@@ -288,7 +348,8 @@ export default function MapSearchView({
               searchResults.map((place) => (
                 <div
                   key={place.id}
-                  className="p-4 border-b border-[#f5f5f7] hover:bg-[#f5f5f7] flex justify-between items-center w-full text-left"
+                  onClick={() => handleResultClick(place)}
+                  className="p-4 border-b border-[#f5f5f7] hover:bg-[#f5f5f7] flex justify-between items-center w-full text-left cursor-pointer"
                 >
                   <div className="flex-1 mr-4">
                     <h3 className="font-semibold text-[15px]">{place.name}</h3>
@@ -297,12 +358,13 @@ export default function MapSearchView({
                     </p>
                   </div>
                   <button
-                    onClick={() =>
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setPendingPlace({
                         place_name: place.name,
                         address_name: place.address,
-                      })
-                    }
+                      });
+                    }}
                     className="px-4 py-2 bg-[#007aff] text-white text-[13px] font-medium rounded-lg hover:bg-[#005bb5] transition-colors whitespace-nowrap"
                   >
                     일정에 추가
@@ -334,7 +396,6 @@ export default function MapSearchView({
             style={{ display: mapProvider === "kakao" ? "block" : "none" }}
           ></div>
 
-          {/* 분리된 모달 컴포넌트 렌더링 */}
           <AddScheduleModal
             place={pendingPlace}
             days={days}
