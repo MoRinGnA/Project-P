@@ -7,8 +7,10 @@ import DayTabs from "./DayTabs";
 import ScheduleForm from "./ScheduleForm";
 import Timeline from "./Timeline";
 import BudgetBar from "./BudgetBar";
+import { getAppendOrderKey } from "../utils";
 
 export default function TimelineView({
+  roomId,
   days,
   setDays,
   activeDay,
@@ -36,6 +38,13 @@ export default function TimelineView({
   const [itemMenu, setItemMenu] = useState(null);
 
   const currentDaySchedule = schedule.filter((item) => item.day === activeDay);
+  currentDaySchedule.sort((a, b) => {
+    if (a.orderKey && b.orderKey) {
+      return a.orderKey.localeCompare(b.orderKey);
+    }
+    return a.time > b.time ? 1 : -1;
+  });
+
   const totalCost = schedule.reduce(
     (sum, item) => sum + (Number(item.cost) || 0),
     0,
@@ -60,13 +69,13 @@ export default function TimelineView({
 
   const handleAddSchedule = (e) => {
     e.preventDefault();
+    const newOrderKey = getAppendOrderKey(currentDaySchedule);
     const newSchedule = [
       ...schedule,
-      { id: Date.now(), day: activeDay, ...newItem },
+      { id: Date.now(), day: activeDay, orderKey: newOrderKey, ...newItem },
     ];
-    newSchedule.sort((a, b) => (a.time > b.time ? 1 : -1));
     setSchedule(newSchedule);
-    socket.emit("schedule_update", newSchedule);
+    socket.emit("schedule_update", { roomId, newSchedule });
     setNewItem({ time: "12:00", title: "", location: "", cost: "" });
   };
 
@@ -92,7 +101,7 @@ export default function TimelineView({
           const next = days.length > 0 ? Math.max(...days) + 1 : 1;
           const newDays = [...days, next];
           setDays(newDays);
-          socket.emit("days_update", newDays);
+          socket.emit("days_update", { roomId, newDays });
           setActiveDay(next);
         }}
       />
@@ -127,16 +136,15 @@ export default function TimelineView({
             const updated = schedule.map((item) =>
               item.id === id ? { ...item, ...editForm } : item,
             );
-            updated.sort((a, b) => (a.time > b.time ? 1 : -1));
             setSchedule(updated);
-            socket.emit("schedule_update", updated);
+            socket.emit("schedule_update", { roomId, newSchedule: updated });
             setEditingId(null);
           }}
           onEditCancel={() => setEditingId(null)}
           onDelete={(id) => {
             const updated = schedule.filter((item) => item.id !== id);
             setSchedule(updated);
-            socket.emit("schedule_update", updated);
+            socket.emit("schedule_update", { roomId, newSchedule: updated });
           }}
           onContextMenu={handleItemContextMenu}
         />
@@ -168,7 +176,7 @@ export default function TimelineView({
                 (item) => item.id !== itemMenu.item.id,
               );
               setSchedule(updated);
-              socket.emit("schedule_update", updated);
+              socket.emit("schedule_update", { roomId, newSchedule: updated });
               setItemMenu(null);
             }}
             className="w-full text-left px-3 py-2 text-[13px] font-medium text-[#ff3b30] hover:bg-[#ff3b30] hover:text-white rounded-[8px] transition-colors"

@@ -9,20 +9,19 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+const io = new Server(httpServer, { cors: { origin: "*" } });
 
-const io = new Server(httpServer, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
-});
-
-app.use(cors({ origin: "*" }));
+app.use(cors());
 app.use(express.json());
 
 io.on("connection", (socket) => {
   socket.on("join_room", (roomId) => {
     socket.join(roomId);
+    socket.to(roomId).emit("request_sync", socket.id);
+  });
+
+  socket.on("send_sync_data", (data) => {
+    io.to(data.targetSocketId).emit("sync_data", data);
   });
 
   socket.on("cursor_move", (data) => {
@@ -40,6 +39,12 @@ io.on("connection", (socket) => {
   socket.on("days_update", (data) => {
     if (data.roomId) {
       socket.to(data.roomId).emit("days_updated", data.newDays);
+    }
+  });
+
+  socket.on("budget_update", (data) => {
+    if (data.roomId) {
+      socket.to(data.roomId).emit("budget_updated", data.newBudget);
     }
   });
 

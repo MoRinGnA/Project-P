@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Routes, Route, useNavigate, useMatch } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { io } from "socket.io-client";
 import {
   DndContext,
@@ -20,14 +20,22 @@ import MapSearchView from "./components/MapSearchView";
 import AiPlannerView from "./components/AiPlannerView";
 import CursorOverlay from "./components/CursorOverlay";
 import ScheduleCard from "./components/ScheduleCard";
+import {
+  getNewOrderKey,
+  getAppendOrderKey,
+  assignInitialOrderKeys,
+} from "./utils";
 
 const socket = io("http://localhost:3000");
 
 function App() {
   const navigate = useNavigate();
-  const match = useMatch("/planner/:roomId");
-  const roomId = match?.params?.roomId;
+  const location = useLocation();
 
+  const pathParts = location.pathname.split("/");
+  const roomId = pathParts[1] === "planner" ? pathParts[2] : null;
+
+  const [isConnected, setIsConnected] = useState(socket.connected);
   const [schedule, setSchedule] = useState(() => {
     const saved = localStorage.getItem("project-p-schedule");
     return saved ? JSON.parse(saved) : [];
@@ -59,17 +67,63 @@ function App() {
   );
 
   useEffect(() => {
-    if (roomId) {
+    const onConnect = () => {
+      setIsConnected(true);
+      if (roomId) {
+        socket.emit("join_room", roomId);
+      }
+    };
+
+    const onDisconnect = () => setIsConnected(false);
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+
+    if (socket.connected && roomId) {
       socket.emit("join_room", roomId);
     }
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+    };
   }, [roomId]);
+
+  useEffect(() => {
+    const handleRequestSync = (targetSocketId) => {
+      if (schedule.length > 0 || days.length > 3 || targetBudget !== 1000000) {
+        socket.emit("send_sync_data", {
+          targetSocketId,
+          schedule,
+          days,
+          targetBudget,
+        });
+      }
+    };
+
+    socket.on("request_sync", handleRequestSync);
+
+    return () => {
+      socket.off("request_sync", handleRequestSync);
+    };
+  }, [schedule, days, targetBudget]);
 
   useEffect(() => {
     socket.on("schedule_updated", (newSchedule) => setSchedule(newSchedule));
     socket.on("days_updated", (newDays) => setDays(newDays));
+    socket.on("budget_updated", (newBudget) => setTargetBudget(newBudget));
+
+    socket.on("sync_data", (data) => {
+      if (data.schedule) setSchedule(data.schedule);
+      if (data.days) setDays(data.days);
+      if (data.targetBudget) setTargetBudget(data.targetBudget);
+    });
+
     return () => {
       socket.off("schedule_updated");
       socket.off("days_updated");
+      socket.off("budget_updated");
+      socket.off("sync_data");
     };
   }, []);
 
@@ -94,39 +148,61 @@ function App() {
         const newIndex = days.indexOf(over.data.current.day);
         const newDays = arrayMove(days, oldIndex, newIndex);
         setDays(newDays);
-        socket.emit("days_update", newDays);
+        socket.emit("days_update", { roomId, newDays });
       }
       return;
     }
 
     if (active.id !== over.id) {
-      const oldIndex = schedule.findIndex((item) => item.id === active.id);
-      const newIndex = schedule.findIndex((item) => item.id === over.id);
+      const currentDaySchedule = schedule.filter(
+        (item) => item.day === activeDay,
+      );
+      currentDaySchedule.sort((a, b) => {
+        if (a.orderKey && b.orderKey) {
+          return a.orderKey.localeCompare(b.orderKey);
+        }
+        return a.time > b.time ? 1 : -1;
+      });
 
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const reordered = arrayMove(schedule, oldIndex, newIndex);
-        const currentDay = reordered[newIndex].day;
-        const dayItems = reordered.filter((item) => item.day === currentDay);
-        const sortedTimes = dayItems.map((item) => item.time).sort();
+      const activeIndex = currentDaySchedule.findIndex(
+        (item) => item.id === active.id,
+      );
+      const overIndex = currentDaySchedule.findIndex(
+        (item) => item.id === over.id,
+      );
 
-        const finalSchedule = reordered.map((item) => {
-          if (item.day === currentDay) {
-            const timeIndex = dayItems.findIndex(
-              (dayItem) => dayItem.id === item.id,
-            );
-            return { ...item, time: sortedTimes[timeIndex] };
-          }
-          return item;
+      if (activeIndex !== -1 && overIndex !== -1) {
+        const newOrderKey = getNewOrderKey(
+          currentDaySchedule,
+          activeIndex,
+          overIndex,
+        );
+
+        const updatedSchedule = schedule.map((item) =>
+          item.id === active.id ? { ...item, orderKey: newOrderKey } : item,
+        );
+
+        setSchedule(updatedSchedule);
+        socket.emit("schedule_update", {
+          roomId,
+          newSchedule: updatedSchedule,
         });
-
-        setSchedule(finalSchedule);
-        socket.emit("schedule_update", finalSchedule);
       }
     }
   };
 
   const handleAddScheduleFromMap = (fullData) => {
+    const dayItems = schedule.filter((item) => item.day === activeDay);
+    dayItems.sort((a, b) => {
+      if (a.orderKey && b.orderKey) {
+        return a.orderKey.localeCompare(b.orderKey);
+      }
+      return a.time > b.time ? 1 : -1;
+    });
+
+    const newOrderKey = getAppendOrderKey(dayItems);
     const newId = Date.now();
+
     const formattedData = {
       id: newId,
       day: Number(fullData.day || activeDay),
@@ -134,16 +210,26 @@ function App() {
       title: fullData.place_name || fullData.title || "이름 없는 장소",
       location: fullData.address_name || fullData.location || "주소 정보 없음",
       cost: Number(fullData.cost) || 0,
+      orderKey: newOrderKey,
     };
 
     const newSchedule = [...schedule, formattedData];
-    newSchedule.sort((a, b) => (a.time > b.time ? 1 : -1));
     setSchedule(newSchedule);
-    socket.emit("schedule_update", newSchedule);
+    socket.emit("schedule_update", { roomId, newSchedule });
   };
 
   const activeItem = schedule.find((item) => item.id === activeId);
   const isDayDrag = activeId?.toString().startsWith("day-tab-");
+
+  const handlePointerMove = (e) => {
+    if (roomId && isConnected) {
+      socket.emit("cursor_move", {
+        roomId,
+        x: e.clientX,
+        y: e.clientY,
+      });
+    }
+  };
 
   return (
     <DndContext
@@ -154,8 +240,13 @@ function App() {
         isDayDrag ? restrictToHorizontalAxis : restrictToVerticalAxis,
       ]}
     >
-      <div className="fixed inset-0 w-screen h-screen bg-[#fbfbfd] flex overflow-hidden font-sans text-left">
-        {roomId && <CursorOverlay socket={socket} roomId={roomId} />}
+      <div
+        className="fixed inset-0 w-screen h-screen bg-[#fbfbfd] flex overflow-hidden font-sans text-left"
+        onPointerMove={handlePointerMove}
+      >
+        {roomId && isConnected && (
+          <CursorOverlay socket={socket} roomId={roomId} />
+        )}
 
         {roomId && (
           <Navigation
@@ -193,11 +284,22 @@ function App() {
                         { length: d },
                         (_, i) => i + 1,
                       );
+                      const scheduleWithKeys = assignInitialOrderKeys(s);
+
                       setDays(newDaysArray);
                       setTargetBudget(b);
-                      setSchedule(s);
-                      socket.emit("schedule_update", s);
-                      socket.emit("days_update", newDaysArray);
+                      setSchedule(scheduleWithKeys);
+
+                      socket.emit("schedule_update", {
+                        roomId,
+                        newSchedule: scheduleWithKeys,
+                      });
+                      socket.emit("days_update", {
+                        roomId,
+                        newDays: newDaysArray,
+                      });
+                      socket.emit("budget_update", { roomId, newBudget: b });
+
                       setActiveDay(1);
                       setActiveView("timeline");
                     }}
@@ -221,6 +323,7 @@ function App() {
                       } h-full overflow-y-auto scrollbar-hide text-left`}
                     >
                       <TimelineView
+                        roomId={roomId}
                         days={days}
                         setDays={setDays}
                         activeDay={activeDay}
@@ -240,8 +343,13 @@ function App() {
                             );
                           setDays(newDays);
                           setSchedule(newSchedule);
-                          socket.emit("days_update", newDays);
-                          socket.emit("schedule_update", newSchedule);
+
+                          socket.emit("days_update", { roomId, newDays });
+                          socket.emit("schedule_update", {
+                            roomId,
+                            newSchedule,
+                          });
+
                           if (activeDay === d) setActiveDay(1);
                           else if (activeDay > d) setActiveDay(activeDay - 1);
                         }}
