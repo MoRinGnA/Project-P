@@ -43,9 +43,7 @@ export default function AiPlannerView({ onGenerateSchedule }) {
     if (!destination || !theme) return;
     setIsLoading(true);
 
-    const API_URL = import.meta.env.DEV
-      ? `http://${window.location.hostname}:3000/api/gemini`
-      : "/api/gemini";
+    const API_URL = "/api/gemini";
 
     const budgetPrompt = budget
       ? `2. 모든 일정의 'cost' 합계는 총 예산(${budget}원)의 70% 이상 80% 이하가 되도록 구성해.`
