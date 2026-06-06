@@ -9,9 +9,18 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, { cors: { origin: "*" } });
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  },
+});
 
-app.use(cors());
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express.json());
 
 io.on("connection", (socket) => {
@@ -64,8 +73,9 @@ app.post("/api/gemini", async (req, res) => {
     );
     res.json(response.data);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: error.response?.data || error.message });
-  }
+}
 });
 
 httpServer.listen(3000, () => {});
